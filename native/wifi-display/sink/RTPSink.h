@@ -80,6 +80,8 @@ private:
 
     sp<TunnelRenderer> mRenderer;
 
+    bool mIsConnectRemotePort;
+
     status_t parseRTP(const sp<ABuffer> &buffer);
     status_t parseRTCP(const sp<ABuffer> &buffer);
     status_t parseBYE(const uint8_t *data, size_t size);

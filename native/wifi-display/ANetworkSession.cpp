@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 #define LOG_TAG "NetworkSession"
 #include <utils/Log.h>
 
@@ -301,6 +301,8 @@ status_t ANetworkSession::Session::readMore() {
         err = -ECONNRESET;
     }
 
+    ALOGD("000   receive %ld %u:\n%s\n", n, mInBuffer.size(), mInBuffer.c_str());
+
     if (!mIsRTSPConnection) {
         // TCP stream carrying 16-bit length-prefixed datagrams.
 
@@ -482,6 +484,8 @@ status_t ANetworkSession::Session::writeMore() {
     do {
         n = send(mSocket, mOutBuffer.c_str(), mOutBuffer.size(), 0);
     } while (n < 0 && errno == EINTR);
+
+    ALOGD("111  send %ld %u:\n%s\n", n, mOutBuffer.size(), mOutBuffer.c_str());
 
     status_t err = OK;
 

@@ -81,6 +81,8 @@ private:
     AString mRTSPHost;
     int32_t mSessionID;
 
+    AString mPresentation_URL;
+
     int32_t mNextCSeq;
 
     KeyedVector<ResponseID, HandleRTSPResponseFunc> mResponseHandlers;
@@ -127,6 +129,8 @@ private:
             int32_t sessionID,
             int32_t cseq,
             const sp<ParsedMessage> &data);
+
+    void onSetParameterRequest_CheckM4Parameter(const char *content);
 
     void sendErrorResponse(
             int32_t sessionID,

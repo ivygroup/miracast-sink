@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 #define LOG_TAG "TunnelRenderer"
 #include <utils/Log.h>
 
@@ -334,9 +334,19 @@ void TunnelRenderer::initPlayer() {
         CHECK_EQ(mComposerClient->initCheck(), (status_t)OK);
 
         DisplayInfo info;
-        SurfaceComposerClient::getDisplayInfo(0, &info);
+        status_t st = SurfaceComposerClient::getDisplayInfo(0, &info);
+        ALOGD("status = %d, w = %u, h = %u, xdpi = %f, ydpi = %f, fps = %f, density = %f",
+              st, info.w, info.h,
+              info.xdpi, info.ydpi,
+              info.fps, info.density);
+
         ssize_t displayWidth = info.w;
         ssize_t displayHeight = info.h;
+
+        if (st != OK) {
+            displayWidth = 1920;
+            displayHeight = 1080;
+        }
 
         mSurfaceControl =
             mComposerClient->createSurface(

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 #define LOG_TAG "RTPSink"
 #include <utils/Log.h>
 
@@ -247,7 +247,8 @@ RTPSink::RTPSink(
       mFirstArrivalTimeUs(-1ll),
       mNumPacketsReceived(0ll),
       mRegression(1000),
-      mMaxDelayMs(-1ll) {
+      mMaxDelayMs(-1ll),
+      mIsConnectRemotePort(false) {
 }
 
 RTPSink::~RTPSink() {
@@ -348,6 +349,15 @@ void RTPSink::onMessageReceived(const sp<AMessage> &msg) {
 
                     sp<ABuffer> data;
                     CHECK(msg->findBuffer("data", &data));
+
+                    int32_t fromPort = 0;
+                    AString fromAddr;
+                    if (msg->findString("fromAddr", &fromAddr)
+                            && msg->findInt32("fromPort", &fromPort)) {
+                        if (!mIsConnectRemotePort) {
+                            connect(fromAddr.c_str(), fromPort, fromPort+1);
+                        }
+                    }
 
                     status_t err;
                     if (msg->what() == kWhatRTPNotify) {
@@ -640,17 +650,22 @@ status_t RTPSink::connect(
         const char *host, int32_t remoteRtpPort, int32_t remoteRtcpPort) {
     ALOGI("connecting RTP/RTCP sockets to %s:{%d,%d}",
           host, remoteRtpPort, remoteRtcpPort);
+    mIsConnectRemotePort = true;
 
     status_t err =
         mNetSession->connectUDPSession(mRTPSessionID, host, remoteRtpPort);
 
     if (err != OK) {
+        ALOGE("cant connect UDPSession, err = %d, mRTPSessionID = %d, host = %s, remoteRtpPort = %d",
+              err, mRTPSessionID, host, remoteRtpPort);
         return err;
     }
 
     err = mNetSession->connectUDPSession(mRTCPSessionID, host, remoteRtcpPort);
 
     if (err != OK) {
+        ALOGE("cant connect UDPSession, err = %d, mRTPSessionID = %d, host = %s, remoteRtcpPort = %d",
+              err, mRTPSessionID, host, remoteRtcpPort);
         return err;
     }
 

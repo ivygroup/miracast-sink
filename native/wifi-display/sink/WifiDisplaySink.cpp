@@ -241,6 +241,7 @@ void WifiDisplaySink::registerResponseHandler(
 }
 
 status_t WifiDisplaySink::sendM2(int32_t sessionID) {
+    ALOGD("call sendM2");
     AString request = "OPTIONS * RTSP/1.0\r\n";
     AppendCommonResponse(&request, mNextCSeq);
 
@@ -265,6 +266,7 @@ status_t WifiDisplaySink::sendM2(int32_t sessionID) {
 
 status_t WifiDisplaySink::onReceiveM2Response(
         int32_t sessionID, const sp<ParsedMessage> &msg) {
+    ALOGD("onReceiveM2Response");
     int32_t statusCode;
     if (!msg->getStatusCode(&statusCode)) {
         return ERROR_MALFORMED;
@@ -279,6 +281,7 @@ status_t WifiDisplaySink::onReceiveM2Response(
 
 status_t WifiDisplaySink::onReceiveDescribeResponse(
         int32_t sessionID, const sp<ParsedMessage> &msg) {
+    ALOGD("onReceiveDescribeResponse");
     int32_t statusCode;
     if (!msg->getStatusCode(&statusCode)) {
         return ERROR_MALFORMED;
@@ -291,8 +294,10 @@ status_t WifiDisplaySink::onReceiveDescribeResponse(
     return sendSetup(sessionID, mSetupURI.c_str());
 }
 
+// on receive M6 response.
 status_t WifiDisplaySink::onReceiveSetupResponse(
         int32_t sessionID, const sp<ParsedMessage> &msg) {
+    ALOGD("onReceiveSetupResponse");
     int32_t statusCode;
     if (!msg->getStatusCode(&statusCode)) {
         return ERROR_MALFORMED;
@@ -328,13 +333,15 @@ status_t WifiDisplaySink::onReceiveSetupResponse(
 
     mState = PAUSED;
 
+    AString playCommand = StringPrintf("rtsp://%s/wfd1.0/streamid=0", mPresentation_URL.c_str());
     return sendPlay(
             sessionID,
             !mSetupURI.empty()
-                ? mSetupURI.c_str() : "rtsp://x.x.x.x:x/wfd1.0/streamid=0");
+                ? mSetupURI.c_str() : playCommand.c_str());
 }
 
 status_t WifiDisplaySink::configureTransport(const sp<ParsedMessage> &msg) {
+    ALOGD("configureTransport");
     if (sUseTCPInterleaving) {
         return OK;
     }
@@ -351,33 +358,48 @@ status_t WifiDisplaySink::configureTransport(const sp<ParsedMessage> &msg) {
         sourceHost = mRTSPHost;
     }
 
-    AString serverPortStr;
-    if (!ParsedMessage::GetAttribute(
-                transport.c_str(), "server_port", &serverPortStr)) {
-        ALOGE("Missing 'server_port' in Transport field.");
-        return ERROR_MALFORMED;
-    }
-
     int rtpPort, rtcpPort;
-    if (sscanf(serverPortStr.c_str(), "%d-%d", &rtpPort, &rtcpPort) != 2
-            || rtpPort <= 0 || rtpPort > 65535
-            || rtcpPort <=0 || rtcpPort > 65535
-            || rtcpPort != rtpPort + 1) {
-        ALOGE("Invalid server_port description '%s'.",
-                serverPortStr.c_str());
 
-        return ERROR_MALFORMED;
+    AString serverPortStr;
+    if (ParsedMessage::GetAttribute(
+                transport.c_str(), "server_port", &serverPortStr)) {
+        if (sscanf(serverPortStr.c_str(), "%d-%d", &rtpPort, &rtcpPort) == 2) {
+            if (rtpPort <= 0 || rtpPort > 65535
+                    || rtcpPort <=0 || rtcpPort > 65535
+                    || rtcpPort != rtpPort + 1) {
+                ALOGE("Invalid server_port description '%s'.",
+                      serverPortStr.c_str());
+
+                return ERROR_MALFORMED;
+            }
+
+            if (rtpPort & 1) {
+                ALOGW("Server picked an odd numbered RTP port.");
+            }
+        } else if (sscanf(serverPortStr.c_str(), "%d", &rtpPort) == 1) {
+            rtcpPort = rtpPort + 1;
+        } else {
+            ALOGE("Invalid server_port description '%s'.",
+                  serverPortStr.c_str());
+            return ERROR_MALFORMED;
+        }
+
+    } else {
+        // ALOGI("Missing 'server_port' in Transport field. using default port");
+        // rtpPort = 33633;
+        // rtcpPort = 33634;
+
+        ALOGI("Missing 'server_port' in Transport field. so not link to source.(RTP)");
+        return OK;
     }
 
-    if (rtpPort & 1) {
-        ALOGW("Server picked an odd numbered RTP port.");
-    }
-
-    return mRTPSink->connect(sourceHost.c_str(), rtpPort, rtcpPort);
+    return OK;  // Now, we not care the "server_port" parameter.
+    // return mRTPSink->connect(sourceHost.c_str(), rtpPort, rtcpPort);
 }
 
 status_t WifiDisplaySink::onReceivePlayResponse(
         int32_t sessionID, const sp<ParsedMessage> &msg) {
+    ALOGD("onReceivePlayResponse");
     int32_t statusCode;
     if (!msg->getStatusCode(&statusCode)) {
         return ERROR_MALFORMED;
@@ -393,6 +415,8 @@ status_t WifiDisplaySink::onReceivePlayResponse(
 }
 
 void WifiDisplaySink::onReceiveClientData(const sp<AMessage> &msg) {
+    ALOGD("onReceiveClientData");
+
     int32_t sessionID;
     CHECK(msg->findInt32("sessionID", &sessionID));
 
@@ -458,6 +482,7 @@ void WifiDisplaySink::onOptionsRequest(
         int32_t sessionID,
         int32_t cseq,
         const sp<ParsedMessage> &data) {
+    ALOGD("onOptionsRequest");
     AString response = "RTSP/1.0 200 OK\r\n";
     AppendCommonResponse(&response, cseq);
     response.append("Public: org.wfa.wfd1.0, GET_PARAMETER, SET_PARAMETER\r\n");
@@ -470,15 +495,34 @@ void WifiDisplaySink::onOptionsRequest(
     CHECK_EQ(err, (status_t)OK);
 }
 
+// on receive M3
 void WifiDisplaySink::onGetParameterRequest(
         int32_t sessionID,
         int32_t cseq,
         const sp<ParsedMessage> &data) {
-    AString body =
+    ALOGD("onGetParameterRequest");
+
+    {
+        // mRTPSink....
+    }
+
+    /* AString body =
         "wfd_video_formats: xxx\r\n"
         "wfd_audio_codecs: xxx\r\n"
-        "wfd_client_rtp_ports: RTP/AVP/UDP;unicast xxx 0 mode=play\r\n";
+        "wfd_client_rtp_ports: RTP/AVP/UDP;unicast xxx 0 mode=play\r\n"; */
 
+    AString body =
+        "wfd_video_formats: 48 00 02 02 0001DEFF 157C7FFF 00000FFF 00 0000 0000 00 none none\r\n"
+        "wfd_audio_codecs: LPCM 00000003 00\r\n";
+
+    body.append("wfd_content_protection: none\r\n");
+    body.append("wfd_coupled_sink: 00 none\r\n");
+    body.append("wfd_uibc_capability: none\r\n");
+    body.append("wfd_standby_resume_capability: none\r\n");
+    body.append("wfd_lg_dlna_uuid: none\r\n");
+    //body.append("wfd_client_rtp_ports: RTP/AVP/UDP;unicast %d 0 mode=play\r\n",
+    //            mRTPSink->getRTPPort());
+    body.append("wfd_client_rtp_ports: RTP/AVP/UDP;unicast 15550 0 mode=play\r\n");
     AString response = "RTSP/1.0 200 OK\r\n";
     AppendCommonResponse(&response, cseq);
     response.append("Content-Type: text/parameters\r\n");
@@ -493,6 +537,8 @@ void WifiDisplaySink::onGetParameterRequest(
 status_t WifiDisplaySink::sendDescribe(int32_t sessionID, const char *uri) {
     uri = "rtsp://xwgntvx.is.livestream-api.com/livestreamiphone/wgntv";
     uri = "rtsp://v2.cache6.c.youtube.com/video.3gp?cid=e101d4bf280055f9&fmt=18";
+
+        ALOGD("sendDescribe");
 
     AString request = StringPrintf("DESCRIBE %s RTSP/1.0\r\n", uri);
     AppendCommonResponse(&request, mNextCSeq);
@@ -516,6 +562,8 @@ status_t WifiDisplaySink::sendDescribe(int32_t sessionID, const char *uri) {
 }
 
 status_t WifiDisplaySink::sendSetup(int32_t sessionID, const char *uri) {
+    ALOGD("sendSetup");
+
     mRTPSink = new RTPSink(mNetSession, mSurfaceTex);
     looper()->registerHandler(mRTPSink);
 
@@ -538,8 +586,8 @@ status_t WifiDisplaySink::sendSetup(int32_t sessionID, const char *uri) {
 
         request.append(
                 StringPrintf(
-                    "Transport: RTP/AVP/UDP;unicast;client_port=%d-%d\r\n",
-                    rtpPort, rtpPort + 1));
+                    "Transport: RTP/AVP/UDP;unicast;client_port=%d\r\n",
+                    rtpPort));
     }
 
     request.append("\r\n");
@@ -561,6 +609,7 @@ status_t WifiDisplaySink::sendSetup(int32_t sessionID, const char *uri) {
 }
 
 status_t WifiDisplaySink::sendPlay(int32_t sessionID, const char *uri) {
+    ALOGD("sendPlay");
     AString request = StringPrintf("PLAY %s RTSP/1.0\r\n", uri);
 
     AppendCommonResponse(&request, mNextCSeq);
@@ -583,21 +632,30 @@ status_t WifiDisplaySink::sendPlay(int32_t sessionID, const char *uri) {
     return OK;
 }
 
+// on receive M4, M5.
 void WifiDisplaySink::onSetParameterRequest(
         int32_t sessionID,
         int32_t cseq,
         const sp<ParsedMessage> &data) {
+    ALOGD("onSetParameterRequest");
     const char *content = data->getContent();
 
+    // if M4
+    onSetParameterRequest_CheckM4Parameter(content);
+
+    // if M5(setup) request.  then send M6
     if (strstr(content, "wfd_trigger_method: SETUP\r\n") != NULL) {
+        // AString uri = StringPrintf("rtsp://%s/wfd1.0/streamid=0", mPresentation_URL.c_str());
+        AString uri = StringPrintf("rtsp://%s/wfd1.0/streamid=0", mPresentation_URL.c_str());
         status_t err =
             sendSetup(
                     sessionID,
-                    "rtsp://x.x.x.x:x/wfd1.0/streamid=0");
+                    uri.c_str());
 
         CHECK_EQ(err, (status_t)OK);
     }
 
+    // response this M*
     AString response = "RTSP/1.0 200 OK\r\n";
     AppendCommonResponse(&response, cseq);
     response.append("\r\n");
@@ -606,10 +664,51 @@ void WifiDisplaySink::onSetParameterRequest(
     CHECK_EQ(err, (status_t)OK);
 }
 
+void WifiDisplaySink::onSetParameterRequest_CheckM4Parameter(const char *content) {
+    ALOGV("onSetParameterRequest_CheckM4Parameter in");
+    int len = strlen(content) + 1;
+    char *contentTemp = new char[len];
+    memset(contentTemp, 0, len);
+    strcpy(contentTemp, content);
+    contentTemp[len-1] = '\0';
+    AString strOld(contentTemp);
+    int pos1 = 0;
+    int pos2 = 0;
+    while (pos1 >= 0 && pos2 >= 0) {
+        ALOGD("pos1 = %d, pos2 = %d", pos1, pos2);
+        pos2 = strOld.find("\r\n", pos1);
+        if (pos2 > 0) {
+            char * array = new char[pos2 - pos1 + 1];
+            memset(array, 0, pos2-pos1+1);
+            strncpy(array, (strOld.c_str() + pos1), pos2 - pos1);
+            AString oneLine = array;
+            char tmp[20];
+            memset(tmp, 20, 0);
+            const char *startstr = "wfd_presentation_URL: rtsp://";
+            int startstrlen = strlen(startstr);
+            if (oneLine.startsWith(startstr)) {
+                int endpos = oneLine.find("/", startstrlen);
+                ALOGV("startlen = %d, endpos = %d", startstrlen, endpos);
+                strncpy(tmp, oneLine.c_str() + startstrlen, endpos - startstrlen);
+                tmp[endpos - startstrlen] = '\0';
+                mPresentation_URL.clear();
+                mPresentation_URL = tmp;
+                break;
+            }
+        } else {
+            break;
+        }
+        pos1 = pos2 + 2;
+    }
+
+    ALOGV("onSetParameterRequest_CheckM4Parameter result. mPresentation_URL = %s\n", mPresentation_URL.c_str());
+}
+
 void WifiDisplaySink::sendErrorResponse(
         int32_t sessionID,
         const char *errorDetail,
         int32_t cseq) {
+    ALOGD("sendErrorResponse");
     AString response;
     response.append("RTSP/1.0 ");
     response.append(errorDetail);
