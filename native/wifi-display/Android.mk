@@ -34,7 +34,7 @@ LOCAL_SHARED_LIBRARIES:= \
         libui                           \
         libutils                        \
 
-LOCAL_MODULE:= libstagefright_wfd
+LOCAL_MODULE:= libwfd
 
 LOCAL_MODULE_TAGS:= optional
 
@@ -60,7 +60,7 @@ LOCAL_MODULE:= wfd
 
 LOCAL_MODULE_TAGS := debug
 
-include $(BUILD_EXECUTABLE)
+# include $(BUILD_EXECUTABLE)
 
 ################################################################################
 
@@ -82,4 +82,4 @@ LOCAL_MODULE:= udptest
 
 LOCAL_MODULE_TAGS := debug
 
-include $(BUILD_EXECUTABLE)
+# include $(BUILD_EXECUTABLE)
