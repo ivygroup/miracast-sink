@@ -1,0 +1,28 @@
+编译说明:
+    1. 编译APK
+    　　需要在源码下边编译,可以用以下命令进行编译:
+            make libwfd
+            make libwfd_jni
+        把编译好的两个lib库放到APP的相关路径下,　可以执行脚本(cplib.sh)进行快速copy
+        然后在Eclipse下编译APK
+        把此APK安装进手机.　手机必须支持Miracast.
+    2. 修改framework.
+        把 framework-modify/路径下的patch, 打到framework中
+        编译services.jar, 用如下命令:
+            make services
+        把编译好的 services.jar, 替换手机中的 system/framework/services.jar 文件.
+
+使用说明:
+    1. 重启手机使services.jar起做用.
+    2. 打开setting->display->wifidisplay: 点一下搜索显示设备,　则在其它的Source端可以看到本Sink.
+    3. 用其它手机连接,　然后快速切换到上一步编译好的APK中.
+
+
+注意:　此程序并不是一个完美的完成品,　未完成部分如下:
+    1. 不用修改Framework, 而直接在程序中管理Wifi direct的连接及发现部分.
+    2. 目前的连接好的IP不是计算得来的,　需要计算找到对方的IP.
+    3. 播放的一些控制及释放等.
+
+此程序的大部分移植自 Android4.2.2的源码,　但是在4.3中此块源码竟然被删掉了,　真是猜不透Google怎么想的.
+
+
