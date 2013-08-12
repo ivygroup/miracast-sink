@@ -1,0 +1,82 @@
+diff --git a/services/java/com/android/server/display/WifiDisplayController.java b/services/java/com/android/server/display/WifiDisplayController.java
+index 56feea6..093555e 100644
+--- a/services/java/com/android/server/display/WifiDisplayController.java
++++ b/services/java/com/android/server/display/WifiDisplayController.java
+@@ -79,7 +79,7 @@ import libcore.util.Objects;
+  */
+ final class WifiDisplayController implements DumpUtils.Dump {
+     private static final String TAG = "WifiDisplayController";
+-    private static final boolean DEBUG = false;
++    private static final boolean DEBUG = true;
+ 
+     private static final int DEFAULT_CONTROL_PORT = 7236;
+     private static final int MAX_THROUGHPUT = 50;
+@@ -276,9 +276,11 @@ final class WifiDisplayController implements DumpUtils.Dump {
+ 
+                 WifiP2pWfdInfo wfdInfo = new WifiP2pWfdInfo();
+                 wfdInfo.setWfdEnabled(true);
+-                wfdInfo.setDeviceType(WifiP2pWfdInfo.WFD_SOURCE);
++                // wfdInfo.setDeviceType(WifiP2pWfdInfo.WFD_SOURCE);
++                // wfdInfo.setDeviceType(WifiP2pWfdInfo.SOURCE_OR_PRIMARY_SINK);
++                wfdInfo.setDeviceType(WifiP2pWfdInfo.PRIMARY_SINK); 
+                 wfdInfo.setSessionAvailable(true);
+-                wfdInfo.setControlPort(DEFAULT_CONTROL_PORT);
++                // wfdInfo.setControlPort(DEFAULT_CONTROL_PORT);
+                 wfdInfo.setMaxThroughput(MAX_THROUGHPUT);
+                 mWifiP2pManager.setWFDInfo(mWifiP2pChannel, wfdInfo, new ActionListener() {
+                     @Override
+@@ -650,7 +652,8 @@ final class WifiDisplayController implements DumpUtils.Dump {
+             // Intel modification is to set go_intent to 14 in order to become GO.
+             // It would allow to choose the operating channel with the help of an internal
+             // algorithm executed in wpa_supplicant
+-            config.groupOwnerIntent = WifiP2pConfig.MAX_GROUP_OWNER_INTENT - 1;
++            // config.groupOwnerIntent = WifiP2pConfig.MAX_GROUP_OWNER_INTENT - 1;
++            config.groupOwnerIntent = WifiP2pConfig.MIN_GROUP_OWNER_INTENT;
+ 
+             WifiDisplay display = createWifiDisplay(mConnectingDevice);
+             advertiseDisplay(display, null, 0, 0, 0);
+@@ -798,6 +801,44 @@ final class WifiDisplayController implements DumpUtils.Dump {
+                         }
+                     }
+                 });
++            } else {
++                Slog.i(TAG, "mDesiedDevice is null");
++                mWifiP2pManager.requestGroupInfo(mWifiP2pChannel, new GroupInfoListener() {
++                    @Override
++                    public void onGroupInfoAvailable(WifiP2pGroup info) {
++                        if (DEBUG) {
++                            Slog.d(TAG, "Received group info: " + describeWifiP2pGroup(info));
++                        }
++
++                        Inet4Address addr = getInterfaceAddress(info);
++                        if (addr == null) {
++                            Slog.i(TAG, "Failed to get local interface address for communicating "
++                                    + "with Wifi display: ");
++                            return; // done
++                        }
++
++                        // final int port = getPortNumber(mConnectedDevice);
++
++                        // final String host = "192.168.49.25";
++                        // final int port = 8554;
++
++                        final String host = "192.168.49.1";
++                        final int port = DEFAULT_CONTROL_PORT;
++
++                        final String iface = host + ":" + port;
++
++                        Slog.d(TAG, "connected .  host and port = " + iface);
++
++                        // Send a intent to my app to connect the source.
++                        Intent intent = new Intent("com.ivygroup.wfdplayer.tolinksource");
++                        intent.putExtra("host", host);
++                        intent.putExtra("port", port);
++
++                        mContext.sendBroadcast(intent);
++
++                        return;
++                    }
++                });
+             }
+         } else {
+             disconnect();
