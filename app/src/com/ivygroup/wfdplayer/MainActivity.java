@@ -26,11 +26,15 @@ public class MainActivity extends Activity implements OnClickListener{
     
     private SurfaceView mSurfaceView;
     private SurfaceHolder mSurfaceHolder;
+    private boolean mSurfaceHolderReady;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d(TAG, "onCreate called.");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mSurfaceHolderReady = false;
 
         // mWfdSinkController = new WfdSinkController(this);
 
@@ -39,9 +43,9 @@ public class MainActivity extends Activity implements OnClickListener{
         findViewById(R.id.btn_end).setOnClickListener(this);
         
         
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction("com.ivygroup.wfdplayer.tolinksource");
-        registerReceiver(mMyReceiver, intentFilter, null, null);
+        // IntentFilter intentFilter = new IntentFilter();
+        // intentFilter.addAction("com.ivygroup.wfdplayer.tolinksource");
+        // registerReceiver(mMyReceiver, intentFilter, null, null);
 
 
         mSurfaceView = (SurfaceView) findViewById(R.id.surfaceView1);  
@@ -56,18 +60,22 @@ public class MainActivity extends Activity implements OnClickListener{
               
             @Override  
             public void surfaceDestroyed(SurfaceHolder holder) {
-                Log.i("通知", "surfaceHolder被销毁了");
+                Log.i("MainActivity", "surfaceHolder被销毁了");
+                mSurfaceHolderReady = false;
             }  
               
             @Override  
             public void surfaceCreated(SurfaceHolder holder) {
-                Log.i("通知", "surfaceHolder被create了");
-            }  
+                Log.i("MainActivity", "surfaceHolder被create了");
+                mSurfaceHolderReady = true;
+            }
               
             @Override  
             public void surfaceChanged(SurfaceHolder holder, int format, int width,  
                     int height) {  
-                Log.i("通知", "surfaceHolder被改变了");  
+                Log.i("MainActivity", "surfaceHolder被改变了");
+                mSurfaceHolderReady = true;
+                tryInitAndStartPlayer();
             }  
         });  
           
@@ -76,11 +84,21 @@ public class MainActivity extends Activity implements OnClickListener{
          *  是创建一个push的'surface'，主要的特点就是不进行缓冲 
          */  
         /*mSurfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);*/
+
+        Intent myIntent = getIntent();
+        if (myIntent != null) {
+            String host = myIntent.getStringExtra("host");
+            int port = myIntent.getIntExtra("port", 7236);
+            Log.d(TAG, "host = " + host + ", port = " + port);
+            mHost = host;
+            mPort = port;
+            tryInitAndStartPlayer();
+        }
     }
 
     @Override
     protected void onDestroy() {
-        unregisterReceiver(mMyReceiver);
+        // unregisterReceiver(mMyReceiver);
         super.onDestroy();
     }
     
@@ -104,6 +122,10 @@ public class MainActivity extends Activity implements OnClickListener{
                 break;
 
             case R.id.btn_end:
+                /*if (mSinkPlayer != null) {
+                    mSinkPlayer.release();
+                    mSinkPlayer = null;
+                }*/
                 break;
 
             default:
@@ -111,24 +133,28 @@ public class MainActivity extends Activity implements OnClickListener{
         }
     }
     
-    
-    private class MyBroadcastReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String host = intent.getStringExtra("host");
-            int port = intent.getIntExtra("port", 7236);
-            Log.d(TAG, "Receive the link broadcast. host = " + host + ", port = " + port);
-
-            mHost = host;
-            mPort = port;
-
-            if (mSinkPlayer != null) {
-                mSinkPlayer.release();
-                mSinkPlayer = null;
-            }
-            mSinkPlayer = new SinkPlayer();
-            mSinkPlayer.setDisplay(mSurfaceHolder);
-            mSinkPlayer.native_startSink(host, port);
+    private synchronized void tryInitAndStartPlayer() {
+        if (!mSurfaceHolderReady) {
+            return;
         }
+
+        if (mHost == null || mHost.isEmpty()) {
+            return;
+        }
+
+        Thread thread = new Thread() {
+            @Override
+            public void run() {
+                if (mSinkPlayer != null) {
+                    mSinkPlayer.release();
+                    mSinkPlayer = null;
+                }
+                mSinkPlayer = new SinkPlayer();
+                mSinkPlayer.setDisplay(mSurfaceHolder);
+                mSinkPlayer.native_startSink(mHost, mPort);
+            }
+        };
+
+        thread.start();
     }
 }

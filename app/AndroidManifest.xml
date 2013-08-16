@@ -28,6 +28,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-    </application>
+
+        <receiver android:name="MyBroadcastReceiver" >
+            <intent-filter>
+                <action android:name="com.ivygroup.wfdplayer.tolinksource" />
+            </intent-filter>
+        </receiver>
+</application>
 
 </manifest>
